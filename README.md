@@ -1,5 +1,4 @@
-# tmc
-PHP Thumbnail Multi-process Converter
+# TMC (Thumbnail Multi-process Converter)
 
 ## 개요
 * PHP상에서 Multi-Process로 동시에 여러개의 이미지의 변환 : gearman 사용
@@ -57,7 +56,7 @@ yum install ffmpeg ffmpeg-devel
 * git clone 후
 `./install.sh`
 
-# TMC 제어
+## TMC 제어
 * 데몬 실행/재시작
   * 실행
 ```
