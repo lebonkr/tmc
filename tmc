@@ -1,0 +1,73 @@
+#! /bin/sh
+
+# Installation
+# - Move this to /etc/init.d/tmc
+# - chmod +x this
+#
+# Starting and stopping
+# - Start: `service tmc start` or `/etc/init.d/tmc start`
+# - Stop: `service tmc stop` or `/etc/init.d/tmc stop`
+
+if [ "$EUID" -ne 0 ]
+  then echo "Please run as root"
+  exit
+fi
+
+NAME=tmc
+DESC="Daemon for Tongro Multiprocess Converter"
+PIDFILE="/var/run/${NAME}.pid"
+LOGFILE="/var/log/${NAME}.log"
+
+DAEMON="/usr/bin/php"
+DAEMON_OPTS="/opt/tmc/tmc_daemon.php "
+STATUSFILE="/opt/tmc/status"
+
+case "$1" in
+    start)
+        echo -n "Starting ${DESC}: "
+        nohup $DAEMON -f $DAEMON_OPTS >$LOGFILE 2>&1 & echo $!
+        echo "$NAME has been started."
+        ;;
+    stop)
+        echo -n "Stopping $DESC: "
+        if [ -f $PIDFILE ]; then
+        pid=`cat "$PIDFILE"`
+        kill -TERM $pid
+        echo "Waiting for finishing $NAME."
+        while ps -p $pid &> /dev/null ; do sleep 1; echo "waiting..."; done;
+        rm -f $PIDFILE
+        else 
+        echo "TMC is not running.."
+        fi
+        ;;
+    status)
+        if [ -f $PIDFILE ]; then
+        pid=`cat "$PIDFILE"`
+        kill -USR1 $pid
+		sleep 2; cat $STATUSFILE
+        #echo "Check log file to confirm TMC alive"
+        else
+        echo "TMC status:not running\n"
+        fi
+        ;;
+    restart)
+        echo -n "Restarting $DESC: "
+        $0 stop
+        sleep 10
+        $0 start
+        rc=$?
+        ;;
+    pause)
+        echo -n "Pause and restart $DESC: "
+        pid=`cat "$PIDFILE"`
+        kill -SIGTSTP pid
+        echo "$NAME."
+        ;;
+    *)
+        N=/etc/init.d/$NAME
+        echo "Usage: $N {start|stop|restart|pause}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
