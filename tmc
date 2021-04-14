@@ -14,7 +14,7 @@ if [ "$EUID" -ne 0 ]
 fi
 
 NAME=tmc
-DESC="Daemon for Tongro Multiprocess Converter"
+DESC="Daemon for Thumbnail Multiprocess Converter"
 PIDFILE="/var/run/${NAME}.pid"
 LOGFILE="/var/log/${NAME}.log"
 

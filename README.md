@@ -86,4 +86,28 @@ service tmc stop
   * client 로그 : /opt/tmc/log/client.log
   * worker 로그 : /opt/tmc/log/worker.log
 
+## 시스템 설명
+* 시스템 구조
+
+![Architecture](/doc/tmc_arch.png)
+
+용어 | 설명
+------------ | -------------
+TMC Daemon | 전체 프로세스를 제어하는 객체
+TMC Client | 변환 작업을 정의하여 gearman으로 요청을 전송하는 객체
+TMC Worker | gearman으로부터 작업을 받아 실제 변환 작업을 하는 객체
+
+* 파일 설명
+ 
+
+path | 설명
+------------ | -------------
+README.md | 설명 파일
+tmc | 실행 스크립트, /etc/init.d/로 복사됨
+install.sh | 설치 스크립트
+tmc.php | 공용 라이브러리 파일
+tmc_daemon.php | tmc 데몬 및 클라이언트 소스
+tmc_worker.php | tmc 워커 실행 소스
+
 ## 사용방법
+1. 
