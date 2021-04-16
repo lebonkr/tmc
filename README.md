@@ -3,7 +3,8 @@
 ## 개요
 * PHP상에서 Multi-Process로 동시에 여러개의 이미지의 변환 : gearman 사용
 * 이미지 변환 기능은 php-pecl-imagick 사용 : Resize, Sharpen, Compression, Profile, Watermark등
-* mp4 동영상에서 프레임 추출, 추출된 이미지 변환 가능
+* mp4 동영상에서 프레임 추출, 추출된 이미지 변환 지원
+* png 투명 배경 이미지 처리 지원
 * REST API 지원, 작업 요청/제어/상태를 API로 함
 
 ## 요구사항
@@ -110,4 +111,80 @@ tmc_daemon.php | tmc 데몬 및 클라이언트 소스
 tmc_worker.php | tmc 워커 실행 소스
 
 ## 사용방법
-1. 
+1. 전체 시스템 설정, 성능, 경로 등의 조건을 아래의 설정 가이드를 참고하여 config/config.json에 설정한다. 가장 상위 작업 단위의 구분을 site 항목 밑으로 구별하여 복수개 설정할수 있다.
+2. 세부 이미지 변환 작업에 대한 설정은 config/template.json에서 site 단위에서 실행될 변환 작업을 정의한다.
+3. gearmand 를 실행한다
+4. 상단 설치 가이드에 따라 웹서버를 설정하고 실행한다
+5. 아래의 API를 참고하여 job을 정의하고 호출한다
+   * 또는 아래의 watchdog 모드를 이용하여 변환할수 있다
+6. 로그를 확인하고 변환된 결과물을 확인한다
+
+## 설정 가이드
+1. config.json : TMC 전체의 설정값들을 지정함
+위치 : /opt/tmc/config/
+```PHP
+{
+  "client_cnt": 10,		// 클라이언트 최대 갯수이며, 동시에 실행할수 있는 작업 최대 갯수. worker_cnt보다 같거나 작게 설정하면 됨 (권장값 worker_cnt / 2). 만약, 같을 경우 클라이언트마다 1개의 작업만 가능하게 됨
+  "worker_cnt": 20, 	// worker에게 넘겨줄 큐 사이즈. 시스템 코어 - 2 정도가 적당한 것으로 추정됨
+  "sleep_delay": 100,	// 데몬 모드에서는 하나의 처리를 하고 0.1초 쉬도록 되어 있음. 그 외에 작업을 추가하거나 watchdog에 추가할 경우 sleep할 시간을 정함. microsecond 단위라 1000000이 최대값이며 1초임. (권장 100)
+  "ffmpeg_dir": "/usr/bin/",	// ffmpeg와 ffprobe가 설치된 디렉토리. 이 값이 없을 경우 PATH에서 지정되어야 함
+  "imagick_mem": [2048, 8196],  // imagick 메모리 제한. 해상도가 10000 x 10000 이상되는 파일들의 경우 readimage만으로도 4G이상을 점유함 
+  "big_worker": 3,		// big file을 처리할 워커 갯수. big file 기준은 10000 x 10000 이상. 이 값은 system memeory / 2 > big_worker * 8G 를 추천함
+  "skipsamesize": true,	// 크기가 같은 파일이 되면 덮어쓰지 않고 스킵함
+  "site" : { // 사이트 기본 정보. 이 값은 작업을 지정할 workload에 사용됨
+		"site01" : {
+			"root" : "/data/site01",	// 설치된 서버에서 원본의 루트 디렉토리를 지정해야 함
+			"cmyk" : [ "USWebCoatedSWOP.icc", "AdobeRGB1998.icc" ], // CMYK 지정에 사용할 icc 프로파일 파일명. config 디렉토리 밑에 저장하고 이름을 지정하면 됨
+			"srgb" : [ "sRGB.icm" ],	// RGB 지정에 사용할 icm 프로파일 파일명. config 디렉토리 밑에 저장하고 이름을 지정하면 됨
+			"watermark" : "sample.png"  // 워터마크에 사용할 이미지. config 디렉토리 밑에 저장하면 됨
+		},
+		"site02" : {
+			"root" : "/data/site02",
+			"cmyk" : [ "USWebCoatedSWOP.icc", "AdobeRGB1998.icc" ],
+			"srgb" : [ "sRGB.icm" ],
+			"watermark" : "sample.png"
+		}
+  },
+  "watchdog": {	      // watchdog 모드에서 사용할 값
+    "site01": {	      // site의 키 값과 일치해야 함
+      "dir": "/source",	      // site.root 밑에서 이 디렉토리를 찾아감
+      "mindepth": 2,	      // 기본적으로 탐색할 최소 depth. 단순 디렉토리만 포함한 디렉토리는 datetime이 바뀌지 않기 때문에 실제 파일이 존재하는 디렉토리까지 찾을 값을 지정해줘야 함
+      "include":["*.jpg","*.png","*.mp4"],      // watchdog에서 포함할 파일 지정
+      "exclude":["*_l.jpg"],               // watchdog에 포함되지 않아야 할 파일 지정
+      "rename" : {"h.mp4":".mp4","v.mp4":".mp4"},  // 동영상 조건. 작업파일을 만들때 파일 이름을 변경하여 저장함
+      "overwrite":true,                   // 덮어쓰기 기본 조건. 이 값이 있으면 템플릿 조건을 override함
+      "capture":3,                        // 동영상 기본조건. 이 값이 있으면 템플릿 조건을 override함
+      "min_sec":1200,                     // watchdog이 실행하기 위해 필요한 최소시간. 너무 자주 하지 않기 위한 설정값
+      "max_sec":86400,                    // watchdog이 탐색할 최대 시간. 너무 많은걸 한꺼번에 하지 않기 위한 설정값
+      "template":"it_hires_new"           // watchdog에서 찾은 이미지를 실행할 템플릿명
+    }
+  }
+}
+```
+
+
+## API
+기능 | 구분 | 값 | 설명
+------------ | ------------ | ------------ | ------------
+작업 요청 | URL	| /api/?act=convert&json=[JSON]	| 작업을 요청함. 
+&nbsp; |request|{<br>  "act":"convert"<br>  "json": [작업파일내용(JSON형식)],<br>  "fileupload":[text 파일명]<br>}<br>| GET보다 POST를 권장 json['filelist'] : true이면 include가 무시되며, FILE 업로드가 추가되어야 함.<br>이 경우 form-data로 전송할것 FILE은 파일경로 포함한 파일이름이 1라인당 1개씩 들어가야 함.<br>라인은 \n로 구분되어야 함
+&nbsp; |response|{<br>  "result":"sucess",<br>  "seq": "2112120011223" <br>}|daemon: 데몬 상태값. 실행중이면 running, 아니면 stopped<br><br>result :<br><br>success = 성공<br>duplicated = 대기중이거나 진행중인 작업과 동일한 JSON을 보내면 중복을 허용하지 않고 기존의 seq를 돌려줌. 성공이긴 함<br>invalid json key = 작업 파일내의 필수 값이 없음<br>invalid site value = config.json에 지정된 site를 사용하지 않음<br>file save failed = 파일 저장 오류<br>invalid json format = request의 json이 JSON 타입이 아님<br>seq : 유니크한 값으로 다른 요청을 할때 사용하는 키값
+작업 상태|URL|	/api/?act=status&seq=[시퀀스값]|	convert에서 받은 seq로 상태 확인
+&nbsp; |request	|{<br>  "act":"status"<br>  "seq": [시퀀스값]<br>}|
+&nbsp; |response|{<br>  "result" : "상태",<br>  "total" : 0,<br>  "processed" : 0,<br>  "finished" : 0<br>}|result :<br><br>waiting = 대기중임<br>starting = 시작되었음<br>finished = 종료됨. 이 경우에만 다음의 값들이 의미있음<br>	total : 총 파일 갯수<br>	processed : 변환 요청된 갯수<br>	finished : 변환 완료된 갯수<br>error = 오류 발생하여 중단됨. 이 경우에만 다음의 값들이 의미있음<br>	result : 오류 내용 (source not found = 파일 변환일 경우 소스 파일이 없음. 상세 내용은 errorlist에서 조회)
+작업 상세|URL|	/api/?act=seqdetail&seq=[시퀀스값]|요청한 작업의 상세 내역&nbsp; |request	|{<br>  "act":"seqdetail"<br>  "seq": [시퀀스값]<br>}|
+&nbsp; |response|{<br>    "total": 4072,<br>    "success": 240,<br>    "error": 3832,<br>    "result": "found"<br>}|result<br>file read error = 파일을 읽을수 없음<br>not found = 찾을수 없음<br><br>found = 찾았음. 이 경우에만 다음의 값들이 의미있음<br>total : status의 total과 같은 값이어야 함. 전체 파일 갯수<br>success : 성공한 파일 갯수<br>error : 오류인 파일 갯수
+결과 파일 리스트 조회|URL|/api/?act=filelist&seq=[시퀀스값]|해당 시퀀스에서 작업된 파일들의 리스트를 돌려줌
+&nbsp; |request	|{<br>  "act":"filelist"<br>  "seq": [시퀀스값],<br>  "start": 0,<br>  "offset": 1000<br>}|파일이 많을 경우 조회 및 리턴이 늦어질수 있으므로 시작 위치 start와 갯수 offset을 지정해야 함.<br><br>지정하지 않을 경우 기본값은 start = 0, offset = 10000.<br><br>offset은 10000 이상 지정해도 10000개로 잘라서 보내줌<br>
+&nbsp; |response|{<br>    "list": [<br>        "/0000172.jpg",<br>        "/0000165.jpg",<br>        ......<br>        "/0000417.jpg",<br>        "/0000418.jpg"<br>    ],<br>    "start": 0,<br>    "offset": 1000,<br>    "result": "found"<br>}|result<br><br>file read error = 파일을 읽을수 없음<br>not found = 찾을수 없음<br><br>found = 찾았음. 이 경우에만 다음의 값들이 의미있음<br>list : file 이름의 array 임<br><br>start : 리스트 시작 위치. 정상적인 경우 request의 start와 같음<br><br>offset : 리스트 갯수. 정상적인 경우 request의 offset과 같음. 이 값이 다른 경우는 마지막 부분일 경우임<br>
+에러 파일 리스트 조회|URL|/api/?act=errorlist&seq=[시퀀스값]|해당 시퀀스에서 작업된 파일들의 리스트를 돌려줌
+&nbsp; |request	|{<br>  "act":"errorlist"<br>  "seq": [시퀀스값],<br>  "start": 0,<br>  "offset": 1000<br>}<br>파일이 많을 경우 조회 및 리턴이 늦어질수 있으므로 시작 위치 start와 갯수 offset을 지정해야 함.<br><br>지정하지 않을 경우 기본값은 start = 0, offset = 1000.<br><br>offset은 10000 이상 지정해도 10000개로 잘라서 보내줌
+&nbsp; |response|{<br>    "list": [<br>        "/0000172.jpg",<br>        "/0000165.jpg",<br>        ......<br>        "/0000417.jpg",<br>        "/0000418.jpg"<br>    ],<br>    "start": 0,<br>    "offset": 1000,<br>    "result": "found"<br>}result<br><br>file read error = 파일을 읽을수 없음<br>not found = 찾을수 없음<br><br>found = 찾았음. 이 경우에만 다음의 값들이 의미있음<br>list : file 이름의 array 임<br><br>start : 리스트 시작 위치. 실제 파일의 위치가 아니라 에러 파일만 빼낸 리스트의 위치임. 기본값은 0<br><br>offset : 리스트 갯수. 정상적인 경우 seqdetail에서 나온 error 갯수 이상을 가져올수는 없음. 기본값은 10000
+결과 파일 조회|URL|/api/?act=fileresult&seq=[시퀀스값]&val=[파일명]|해당 시퀀스에서 작업된 파일의 결과를 돌려줌
+&nbsp; |request	|{<br>  "act":"fileresult"<br>  "seq": [시퀀스값],<br>  "val": [파일명]<br>}
+&nbsp; |response|{<br>    "seq": "210111111521025",<br>    "result": "found",<br>    "filename": "/0000165.jpg",<br>    "requested": "8",<br>    "success": "8",<br>    "warning": "0"<br>}|seq : 요청한 seq 값<br><br>result<br><br>file read error = 파일을 읽을수 없음<br>not found = 찾을수 없음<br>found = 찾았음. 이 경우에만 다음의 값들이 의미있음<br>filename : 요청한 파일명<br><br>requested : convert때에 요청된 json에서 proc 에 기재된 파일 생성 단계 수와 일치해야함<br><br>success : 실제 생성된 파일 갯수<br><br>warning : 오류나 경고로 생성되지 않은 파일 갯수
+
+## 사족
+* GNU GENERAL PUBLIC LICENSE 입니다. 개인적인 사용은 가능하나, 상업적 이용이나 수정시에는 소스를 공개해야 합니다
+* 코드에 대한 문제, 개선, 수정에 대한 참여는 언제나 환영입니다. 의문 사항에 대한 답변은 가능할수도 아닐수도 있습니다
+* 특정 기능을 추가하거나 커스터마이징에 대한 무료 요청은 정중히 거절합니다 :)
