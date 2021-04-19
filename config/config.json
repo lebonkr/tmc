@@ -1,0 +1,47 @@
+{
+  "client_cnt": 10,
+  "worker_cnt": 20,
+  "sleep_delay": 100,
+  "ffmpeg_dir": "/usr/bin/",
+  "imagick_mem": [4096, 8192],
+  "big_worker": 3,
+  "skipsamesize": true,
+  "site": {
+    "site01": {
+      "root": "/data/site01",
+      "cmyk": [
+        "USWebCoatedSWOP.icc",
+        "AdobeRGB1998.icc"
+      ],
+      "srgb": [
+        "sRGB.icm"
+      ],
+      "watermark": "sample.png"
+    },
+    "site02": {
+      "root": "/data/site02",
+      "cmyk": [
+        "USWebCoatedSWOP.icc",
+        "AdobeRGB1998.icc"
+      ],
+      "srgb": [
+        "sRGB.icm"
+      ],
+      "watermark": "sample.png"
+    }
+  },
+  "watchdog": {
+    "site02": {
+      "dir": "/source",
+      "mindepth": 2,
+      "include":["*.jpg","*.png","*h.mp4"],
+      "rename" : {"h.mp4":".mp4","v.mp4":".mp4"}, 
+      "exclude":["*_l.jpg"],
+      "min_sec":120,
+      "max_sec":86400,
+      "overwrite":true,
+      "capture":3,
+      "template":"template_site02"
+    }
+  }
+}

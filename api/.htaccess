@@ -1,0 +1,5 @@
+RewriteEngine On    # Turn on the rewriting engine
+ 
+#RewriteRule ^api/([0-9a-zA-Z_-]*)/([0-9a-zA-Z_-]*)/?([.]*)$ api.php?act=$1&seq=$2&$3 [NC,L]
+#RewriteRule ^api/([0-9a-zA-Z_-]*)/([0-9a-zA-Z_-]*)$ api.php?act=$1&seq=$2 [NC,L]
+RewriteRule ^api/ api.php

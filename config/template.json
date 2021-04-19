@@ -1,0 +1,236 @@
+{
+  "template_site01": {
+    "description": "사이트01의 썸네일 제작 예제. jpg, mp4, png 모두 변환함",
+    "proc": [
+      {
+        "name": "Origin",
+        "source": "hires",
+        "source_ext": "!mp4",
+        "strip": true,
+        "cmyk": true,
+        "srgb": true,
+        "size": [1000,1000],
+        "path_head": "/site01/Origin",
+        "force_dir": true,
+        "save": true,
+        "overwrite": false,
+        "comp": 0
+      },
+      {
+        "name": "PreviewNoWatermark",
+        "source": "hires",
+        "source_ext": "mp4",
+        "ffmpeg": true,
+        "size": [640,640],
+        "path_head": "/site01/PreviewNoWatermark",
+        "force_dir": true,
+        "save": true,
+        "overwrite": false
+      },
+      {
+        "name": "PreviewNoWatermark",
+        "source": "Origin",
+        "source_ext": "!mp4",
+        "size": [600,600],
+        "path_head": "/site01/PreviewNoWatermark",
+        "force_dir": true,
+        "overwrite": false,
+        "watermark": false,
+        "bitrate": 300,
+        "comp": 0
+      },
+      {
+        "name": "Preview",
+        "source": "PreviewNoWatermark",
+        "source_ext": "!mp4",
+        "size": [0,0],
+        "path_head": "/site01/Preview",
+        "force_dir": true,
+        "overwrite": false,
+        "watermark": true,
+        "comp": 90
+      },
+      {
+        "name": "Preview",
+        "source": "hires",
+        "source_ext": "mp4",
+        "ffmpeg": true,
+        "size": [640,640],
+        "path_head": "/site01/Preview",
+        "force_dir": true,
+        "watermark": true,
+        "bitrate": 300,
+        "overwrite": false
+      },
+      {
+        "name": "ThumbV",
+        "source": "Origin",
+        "size": [0,340],
+        "path_head": "/site01/ThumbV",
+        "sharpen": [6,0.6],
+        "force_dir": true,
+        "overwrite": false,
+        "comp": 90
+      },
+      {
+        "name": "ThumbR",
+        "source": "Origin",
+        "size": [245,0],
+        "path_head": "/site01/ThumbR",
+        "sharpen": [6,0.6],
+        "force_dir": true,
+        "overwrite": false,
+        "comp": 90
+      },
+      {
+        "name": "ThumbH",
+        "source": "Origin",
+        "size": [200,200],
+        "path_head": "/site01/ThumbH",
+        "sharpen": [6,0.6],
+        "force_dir": true,
+        "overwrite": false,
+        "comp": 90
+      },
+      {
+        "name": "Thumb",
+        "source": "Origin",
+        "size": [140,140],
+        "path_head": "/site01/Thumb",
+        "sharpen": [6,0.6],
+        "force_dir": true,
+        "overwrite": false,
+        "comp": 80
+      },
+      {
+        "name": "ThumbS",
+        "source": "Origin",
+        "size": [80,80],
+        "path_head": "/site01/ThumbS",
+        "sharpen": [6,0.6],
+        "force_dir": true,
+        "overwrite": false,
+        "comp": 80
+      }
+    ]
+  },
+  "template_site02": {
+    "description": "사이트02의 썸네일 제작 예제. jpg, mp4, png 모두 변환함",
+    "proc": [
+      {
+        "name": "Origin",
+        "source": "hires",
+        "source_ext": "!mp4",
+        "strip": true,
+        "cmyk": true,
+        "srgb": true,
+        "size": [1000,1000],
+        "path_head": "/site02/Origin",
+        "force_dir": false,
+        "save": false,
+        "overwrite": false,
+        "comp": 0
+      },
+      {
+        "name": "Origin",
+        "source": "hires",
+        "source_ext": "mp4",
+        "cmyk": true,
+        "srgb": true,
+        "size": [0,0],
+        "path_head": "/site02/Origin",
+        "force_dir": false,
+        "save": false,
+        "overwrite": false,
+        "comp": 0
+      },
+      {
+        "name": "PreviewNoWatermark",
+        "source": "Origin",
+        "source_ext": "!mp4",
+        "size": [600,600],
+        "path_head": "/site02/PreviewNoWatermark",
+        "force_dir": true,
+        "overwrite": true,
+        "comp": 0
+      },
+      {
+        "name": "Preview",
+        "source": "PreviewNoWatermark",
+        "source_ext": "!mp4",
+        "size": [0,0],
+        "path_head": "/site02/Preview",
+        "force_dir": true,
+        "overwrite": true,
+        "watermark": true,
+        "comp": 90
+      },
+      {
+        "name": "Preview",
+        "source": "hires",
+        "source_ext": "mp4",
+        "ffmpeg": true,
+        "size": [640,640],
+        "path_head": "/site02/Flv",
+        "force_dir": true,
+        "watermark": true,
+        "bitrate": 300,
+        "overwrite": true
+      },
+      {
+        "name": "ThumbV",
+        "source": "Origin",
+        "size": [0,340],
+        "path_head": "/site02/ThumbV",
+        "sharpen": [6,0.6],
+        "force_dir": true,
+        "overwrite": true,
+        "comp": 90,
+        "callback": [{
+            "action":"curl",
+            "target":"http://192.168.20.239/tmc_callback.php?file=%file%"
+        }]
+      },
+      {
+        "name": "ThumbR",
+        "source": "Origin",
+        "size": [245,0],
+        "path_head": "/site02/ThumbR",
+        "sharpen": [6,0.6],
+        "force_dir": true,
+        "overwrite": false,
+        "comp": 90
+      },
+      {
+        "name": "ThumbH",
+        "source": "Origin",
+        "size": [200,200],
+        "path_head": "/site02/ThumbH",
+        "sharpen": [6,0.6],
+        "force_dir": true,
+        "overwrite": false,
+        "comp": 90
+      },
+      {
+        "name": "Thumb",
+        "source": "Origin",
+        "size": [140,140],
+        "path_head": "/site02/Thumb",
+        "sharpen": [6,0.6],
+        "force_dir": true,
+        "overwrite": false,
+        "comp": 80
+      },
+      {
+        "name": "ThumbS",
+        "source": "Origin",
+        "size": [80,80],
+        "path_head": "/site02/ThumbS",
+        "sharpen": [6,0.6],
+        "force_dir": true,
+        "overwrite": false,
+        "comp": 80
+      }
+    ]
+  }
+}

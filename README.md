@@ -6,6 +6,7 @@
 * mp4 동영상에서 프레임 추출, 추출된 이미지 변환 지원
 * png 투명 배경 이미지 처리 지원
 * REST API 지원, 작업 요청/제어/상태를 API로 함
+* TMC Worker는 네트워크로 연결된 시스템이면 이미지 파일을 읽고 쓰는 I/O가 허용되는 한 무제한 추가 가능함
 
 ## 요구사항
 * 필수
@@ -18,11 +19,12 @@
   * REST API 사용하려면 Apache 또는 nginx 필요
 
 ## 설치 가이드 (CentOS 7.9기준)
-* Apache 또는 nginx DocumentRoot = /opt/tmc/api
+* Apache 또는 nginx 설치되어야 함
+  * DocumentRoot = /opt/tmc/api
 
 * install php
 ```
-yum install php php-pecl-imagick php-pecl-gearman 
+yum install php php-pear curl-devel php-devel zlib-devel php-pecl-imagick php-pecl-gearman 
 ```
 
 * install gearmand 
@@ -144,15 +146,15 @@ tmc_worker.php | tmc 워커 실행 소스
       "watermark" : "sample.png"
     }
   },
-  "watchdog": {	      // watchdog 모드에서 사용할 값
+  "watchdog": {	      // watchdog 모드에서 사용할 값. 문서 하단 watchdog 모드 참고
     "site01": {	      // site의 키 값과 일치해야 함
       "dir": "/source",	      // site.root 밑에서 이 디렉토리를 찾아감
       "mindepth": 2,	      // 기본적으로 탐색할 최소 depth. 단순 디렉토리만 포함한 디렉토리는 datetime이 바뀌지 않기 때문에 실제 파일이 존재하는 디렉토리까지 찾을 값을 지정해줘야 함
       "include":["*.jpg","*.png","*.mp4"],      // watchdog에서 포함할 파일 지정
       "exclude":["*_l.jpg"],               // watchdog에 포함되지 않아야 할 파일 지정
-      "rename" : {"h.mp4":".mp4","v.mp4":".mp4"},  // 동영상 조건. 작업파일을 만들때 파일 이름을 변경하여 저장함
-      "overwrite":true,                   // 덮어쓰기 기본 조건. 이 값이 있으면 템플릿 조건을 override함
-      "capture":3,                        // 동영상 기본조건. 이 값이 있으면 템플릿 조건을 override함
+      "rename" : {"h.mp4":".mp4","v.mp4":".mp4"},  // 동영상 조건. 목적 파일을 만들때 파일 이름을 변경하여 저장함
+      "overwrite":true,                   // 덮어쓰기 기본 조건. 이 값이 있으면 템플릿 조건의 같은 조건값을 override함
+      "capture":3,                        // 동영상 기본조건. 이 값이 있으면 템플릿 조건의 같은 조건값override함
       "min_sec":1200,                     // watchdog이 실행하기 위해 필요한 최소시간. 너무 자주 하지 않기 위한 설정값
       "max_sec":86400,                    // watchdog이 탐색할 최대 시간. 너무 많은걸 한꺼번에 하지 않기 위한 설정값
       "template":"it_hires_new"           // watchdog에서 찾은 이미지를 실행할 템플릿명
@@ -389,6 +391,81 @@ tmc_worker.php | tmc 워커 실행 소스
 결과 파일 조회|URL|/api/?act=fileresult&seq=[시퀀스값]&val=[파일명]|해당 시퀀스에서 작업된 파일의 결과를 돌려줌
 &nbsp; |request	|{<br>  "act":"fileresult"<br>  "seq": [시퀀스값],<br>  "val": [파일명]<br>}
 &nbsp; |response|{<br>    "seq": "210111111521025",<br>    "result": "found",<br>    "filename": "/0000165.jpg",<br>    "requested": "8",<br>    "success": "8",<br>    "warning": "0"<br>}|seq : 요청한 seq 값<br><br>result<br><br>file read error = 파일을 읽을수 없음<br>not found = 찾을수 없음<br>found = 찾았음. 이 경우에만 다음의 값들이 의미있음<br>filename : 요청한 파일명<br><br>requested : convert때에 요청된 json에서 proc 에 기재된 파일 생성 단계 수와 일치해야함<br><br>success : 실제 생성된 파일 갯수<br><br>warning : 오류나 경고로 생성되지 않은 파일 갯수
+
+* API는 비동기 방식이므로 작업이 종료되면 callback으로 작업 완료를 알려줌
+* 작업 파일의 hires 밑에 callback에 주소를 명시하면 완료 후 다음의 포맷으로 호출함
+* Callback data format
+
+callback data field|설명
+------------ | ------------
+seq | 작업 시작시 return된 seq값
+result | 1 = 성공, 0 = 실패 (생성이 실패했거나 warning이 1개 이상이면 실패임)
+count | 총 변환 대상이 된 원본 파일 갯수 (생성된 갯수가 아님)
+processed | 실제 프로세스 된 원본 파일 갯수 (일반적으로는 같아야 하지만, 작업 시작 후 원본이 삭제되거나 이동되면 달라질수 있음)
+created | 총 생성된 파일 갯수 (proc의 단계가 많을 수록 늘어남. 에러가 없을 경우 created = count x proc단계수 임)
+warn | 경고가 발생한 파일 총 갯수. cmyk나 srgb 프로파일과 워터마크 파일이 없는경우, overwrite=true인데 파일 삭제가 안되는 경우 발생함
+
+* Callback return value : callback으로 받은 주소에서 응답을 '{"code":1}'을 출력해주면 TMC에서는 성공으로 판단함. 아니면 실패로 판단.
+
+## Watchdog
+* TMC의 기본 동작은 작업을 정의하고 API를 통해 요청을 하면 비동기 방식으로 변환작업을 하고 작업이 끝난 후 callback으로 알려주는 방식임
+* 만약, 소스 이미지 파일이 특정 디렉토리에 추가되거나 변경되어 업데이트 되며, 이러한 파일들을 일정한 규칙에 따라 목적 디렉토리에 이미지 변환만 하면 되는 경우를 위해 지원되는 방법임
+  1. 동작에 대한 정의는 config/config.json 내용 중 watchdog에 정의됨
+  2. watchdog 밑의 항목은 복수개로 여러개의 동작을 지정 가능하며, 작업 완료 여부는 로그를 확인하는 방법뿐임
+  3. 이 모드는 원본 디렉토리의 시간 변경값을 가지고 갱신 여부를 판단하므로, 원본 디렉토리가 있는 시스템과 TMC 서버들의 시간 동기화가 맞지 않을 경우 오동작을 하게 됨을 주의
+
+## Big Worker 
+1. php-pecl-imagick는 원본 파일의 해상도에 따라 메모리를 할당함
+2. 일반적인 이미지는 3-4G내에서 해결되지만, 10000 x 10000 정도의 이미지는 메모리 사용량이 8G까지 육박함
+3. 가능한 방법으로는 시스템의 메모리를 늘리는 것이지만, TMC는 CPU 코어 갯수만큼 사용하므로 10개를 동시처리하기 위해 80G를 준비하는 것은 비생산적임
+4. 해결 방법은 Worker들중 10000 x 10000 이상을 처리할수 있는 갯수를 제한하여 Big Worker라는 이름으로 실행하고, gearman에 함수 등록을 별도로 함
+5. 해상도를 검사하여 기준에 맞는 이미지는 Big worker가 전담하여 처리함. 모든 이미지가 해상도 이상의 것이면 처리 속도는 느려지지만, 시스템이 메모리 스와핑으로 느려지는것보다 훨씬 나음
+
+## 성능
+1. 설치 시스템 : 24Core, 24G Ram
+2. TMC 설정 : 위의 config.json 항목 참조
+3. 실제 성능
+   * 기본 10MB 이상의 이미지들을 각기 다른 썸네일 8개 생성
+   * 이미지 1개당 20초 이내, 동시 20개 처리, 약 10만개 원본 + 80만개 썸네일 생성/1일 처리 가능
+   * gearman은 TCP로 연결 가능한 네트웍에서 동시에 여러개의 worker로 넘길수 있으므로 성능 확장이 용이함
+
+## 서버 생성 파일들
+1. 작업 요청 파일
+   * 파일명 규칙 : 년(2자리)+월(2자리)+일(2자리)+시(2자리)+분(2자리)+초(2자리)+랜덤(3자리) = 총 15자리 숫자
+   * ROOT_DIR/req 에서 생성됨
+   * TMC가 작업을 시작하면 ROOT_DIR/proc 으로 이동시킴
+   * 작업을 완료하거나 cancel 되면 ROOT_DIR/done 으로 이동시킴
+2. 상태 파일
+   * 파일명 규칙 : 작업요청파일 +.stat
+   * 내용 규칙 : 총파일갯수 + \t + 완료갯수 + \t + 진행갯수
+   * ROOT_DIR/proc 에 생성되고 완료 후에도 proc에 계속 저장됨
+3. 리스트 파일
+   * 파일명 규칙 : 작업요청파일 + .file
+   * 내용 규칙 : 라인마다 작업대상 파일
+   * ROOT_DIR/proc 에 생성되고 완료 후에는 ROOT_DIR/done 으로 이동시킴
+4. 명령 파일
+   * 파일명 규칙 : 작업요청파일 + .ctrl
+   * 내용 규칙 : JSON형식
+     * status : 명령 내용
+     * cnt : 총 파일갯수
+     * pos : 현재 진행위치
+   * pause/resume 일 경우 : API가 ROOT_DIR/proc 에 만듬. 재시작시에도 삭제하지 않고, resume이 오면 삭제함
+   * stop 일 경우 : TMC가 ROOT_DIR/proc 에 만듬. 재시작하면 삭제하고 다시 동작
+   * cancel 일 경우 : API가 ROOT_DIR/proc 에 만들고, 처리되면 ROOT_DIR/done 으로 이동시킴
+5. 결과 파일
+   * 파일명 규칙 : 작업요청파일 + .result
+   * 내용 규칙
+     * 라인마다 작업대상 파일 + \t + 단계수 + \t + 생성된 파일수 + \t + 경고발생갯수
+   * 리스트 파일과 원칙적으로 같은 라인수여야 함
+   * ROOT_DIR/done에 생성되고 계속 보관됨
+6. 에러 파일
+   * 에러 파일은 ROOT_DIR/err 에 저장되며 다음의 경우에 발생함
+     * client의 mode 값이 MODE_ERROR인 경우 작업 요청 파일을 err 디렉토리로 이동
+     * 작업 요청파일을 읽었는데 json_decode가 실패하면 이동
+     * req 에 저장된 파일을 읽었는데 json_decode가 실패하면 이동
+     * 명령 파일을 읽었는데 status가 없으면 (또는 json이 잘못되었거나) 이동
+     * hires.filelist가 true인데 .file이 없는 경우
+ 
 
 ## 사족
 * GNU GENERAL PUBLIC LICENSE 입니다. 개인적인 사용은 가능하나, 상업적 이용이나 수정시에는 소스를 공개해야 합니다
