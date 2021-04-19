@@ -120,7 +120,7 @@ tmc_worker.php | tmc 워커 실행 소스
 
 ## 설정 가이드
 1. config.json : TMC 전체의 설정값들을 지정함
-위치 : /opt/tmc/config/
+   * 위치 : /opt/tmc/config/
 ```Javascript
 {
   "client_cnt": 10,		// 클라이언트 최대 갯수이며, 동시에 실행할수 있는 작업 최대 갯수. worker_cnt보다 같거나 작게 설정하면 됨 (권장값 worker_cnt / 2). 만약, 같을 경우 클라이언트마다 1개의 작업만 가능하게 됨
@@ -161,8 +161,8 @@ tmc_worker.php | tmc 워커 실행 소스
 }
 ```
 2. template.json : 원래 작업파일에서 proc으로 작업 내역을 지정하였으나, 대부분의 경우 각 케이스마다 고정된 값을 사용하면 되기 때문에 템플릿 으로 분리하고 작업 파일에서는 템플릿 이름을 사용하는 것으로 변경
-위치 : /opt/tmc/config/
-```
+   * 위치 : /opt/tmc/config/
+```Javascript
 {
     "템플릿명": {
       "description": "템플릿 설명",
@@ -252,6 +252,119 @@ tmc_worker.php | tmc 워커 실행 소스
         ... 나머지는 동일. 썸네일용 원본은 모두 Origin을 쓰면 됨
       ]
     }
+}
+```
+3. 작업 파일
+   * 작업을 지시하는 파일은 다음과 같은 형식을 갖는 json 파일이며, API 에서 요청시에 쓰임
+```Javascript
+{
+  "hires": {	// (필수) 원본 지정 지시자
+    "site": "site01",	// (필수) config.json에 설정된 site값 중 하나여야 함
+    "path_head": "/site01",	// (필수) 마운트된 디렉토리 밑에 원본 디렉토리중 최상 위치
+    "path_tail": "/2021/01/01",	// 원본 하위 디렉토리. 이 값은 변환되어 저장될 파일들의 디렉토리 지정시 사용됨
+    "subdir": false,	// (옵션) 하위 디렉토리를 찾을 것인지 여부
+    "include": [		// (필수) 포함될 파일 지정. wildcard 가능함. tmc에서는 디렉토리명 끝에 /를 붙이지 않고 파일명 앞에 /가 붙으므로, 와일드카드를 뒷부분에 쓰려면 /img0004*.jpg 와 같이 사용해야 함. filelist이 true면 이 필드는 무시됨
+      "*.jpg"
+    ],
+    "exclude": [		// (옵션) 제외할 파일 지정. wildcard 가능함. filelist이 true면 이 필드는 무시됨
+      "*_l.jpg"
+    ],
+    "overwrite": true, 	// (옵션) proc에서 지정하는 overwrite와 같은 동작을 함. 여기서 지정을 하면 proc의 overwrite를 모두 덮어씀
+    "filelist": false, 	// (옵션) 이 조건이 true이면 API에 text file을 업로드 해야 함. 업로드된 파일은 \n를 라인 구분자로 파일경로+파일명이 있어야 함. site + path_head + path_tail + 라인내용 으로 실제 파일명이 되어야 함
+    "callback": "http:\/\/192.168.0.255\/api\/convert_end"  	// (옵션) 작업이 끝날때 이 주소가 있으면 콜백을 해줌. (POST 방식) 주소형식은 자유이지만 POST 데이터 형식은 고정임.
+  },
+  "template":"템플릿명"		// template.json에서 지정된 템플릿 이름. 이 위치에 proc을 바로 사용하는 것도 가능함
+}
+```
+   * 동영상용 작업 파일
+```Javascript
+{
+  "hires": {
+    "site": "site01",
+    "path_head": "/site01",
+    "path_tail": "/2021/01/15",
+    "subdir": true,
+    "include": [
+      "*.mp4" 				// 확장자를 mp4로 설정하면 mp4의 경우 ffmpeg으로 변환함	
+    ],
+    "exclude": [],
+    "capture": 5,			// (옵션) 동영상은 특정 시간의 화면을 캡쳐하여 이미지로 만듬. 이 값을 지정하면 해당 초의 화면을 캡쳐함. 기본값 0
+    "rename" : {"h.mp4":".mp4","v.mp4":".mp4"},	// (옵션) 파일명 변환 규칙, str_ireplace로 파일명을 변경해서 저장하는 것에 유의. 기본값 empty이고 이 경우 변경 없음
+    "check_count": 0
+  },
+  "target": {			// 개발 테스트용임. 실서비스에서 사용할 필요 없음
+    "root": "/data/site02"
+  },
+  "template":"템플릿명2"		// template.json에서 지정된 템플릿 이름. 이 위치에 proc을 바로 사용하는 것도 가능함
+}
+```
+   * 동영상과 이미지를 동시에 변환하는 작업 파일
+```Javascript
+{
+  "hires": {
+    "site": "site01",
+    "path_head": "site01",
+    "path_tail": "/2021/01/15",
+    "subdir": true,
+    "include": [
+      "*.jpg", "*.mp4"
+    ],
+    "exclude": [],
+    "capture": 5,
+    "check_count": 0
+  },
+  "target": {
+    "root": "/data/site01"
+  },
+  "proc": [
+    {
+      "name": "Origin",			// 이미지용 오리진 생성
+      "source": "hires",
+      "source_ext": "jpg",		// png도 포함하고 싶으면 !mp4라고 하면 됨
+      "strip": true,
+      "cmyk": true,
+      "srgb": true,
+      "size": [
+        1000,1000
+      ],
+      "path_head": "/site01/Origin",
+      "save": false
+    },
+    {
+      "name": "Origin",			// 동영상용 오리진 이미지파일 생성
+      "source": "hires",
+      "source_ext": "mp4",
+      "path_head": "/site01/Origin",
+      "size": [
+        1000,1000
+      ],
+      "save": false
+    },
+    {
+      "name": "Preview",		// 이미지용 프리뷰
+      "source": "Origin",
+      "source_ext": "jpg",
+      "size": [600,600],
+      "path_head": "/site01/Preview",		// 이미지 프리뷰용 디렉토리
+      "force_dir": true,
+      "save": true,
+      "watermark": true,
+      "overwrite": true
+    },
+    {
+      "name": "Preview",		// 동영상용 프리뷰
+      "source": "hires",		// 동영상 Origin은 썸네일 저장하기 위해 만든거임. 동영상은 hires에서 불러와야 함
+      "source_ext": "mp4",
+      "size": [640,640],
+      "path_head": "/site01/Flv",       // 동영상용 프리뷰 디렉토리
+      "force_dir": true,
+      "save": true,
+      "watermark": true,
+      "bitrate": 300,
+      "overwrite": true
+    },
+    ... 나머지는 동일. 썸네일용 원본은 모두 Origin을 쓰면 됨
+  ]
 }
 ```
 
