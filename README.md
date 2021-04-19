@@ -100,7 +100,6 @@ TMC Client | 변환 작업을 정의하여 gearman으로 요청을 전송하는 
 TMC Worker | gearman으로부터 작업을 받아 실제 변환 작업을 하는 객체
 
 * 파일 설명
- 
 
 path | 설명
 ------------ | -------------
@@ -110,6 +109,12 @@ install.sh | 설치 스크립트
 tmc.php | 공용 라이브러리 파일
 tmc_daemon.php | tmc 데몬 및 클라이언트 소스
 tmc_worker.php | tmc 워커 실행 소스
+api/api.php | api 담당 소스
+config/config.json | TMC 설정 파일
+config/template.json | 템플릿 설정 파일
+config/sample.png | 예제 샘플 워터마크
+config/16x16.png | PNG 백그라운드용 이미지
+config/\*.icc, \*.icm | 컬러 프로파일
 
 ## 사용방법
 1. 전체 시스템 설정, 성능, 경로 등의 조건을 아래의 설정 가이드를 참고하여 config/config.json에 설정한다. 가장 상위 작업 단위의 구분을 site 항목 밑으로 구별하여 복수개 설정할수 있다.
