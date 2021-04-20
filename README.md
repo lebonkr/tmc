@@ -3,9 +3,9 @@
 ## 개요
 * PHP상에서 Multi-Process로 동시에 여러개의 이미지의 변환 : gearman 사용
 * 이미지 변환 기능은 php-pecl-imagick 사용 : Resize, Sharpen, Compression, Profile, Watermark등
-* mp4 동영상에서 프레임 추출, 추출된 이미지 변환 지원
+* mp4 동영상에서 프레임 추출, 추출된 이미지 변환 지원. MP4 Resize & Watermark 지원
 * png 투명 배경 이미지 처리 지원
-* REST API 지원, 작업 요청/제어/상태를 API로 함
+* Simple REST API 지원, 작업 요청/제어/상태를 API로 함
 * TMC Worker는 네트워크로 연결된 시스템이면 이미지 파일을 읽고 쓰는 I/O가 허용되는 한 무제한 추가 가능함
 
 ## 요구사항
